@@ -15,18 +15,26 @@ pip install -r scripts/mcp-requirements.txt
 
 Relayが停止している場合はMCPが `pnpm start:relay` を起動します。
 
-Codex等への登録例（mcpServers）:
+Codex等への登録例（`~/.codex/config.toml`）。トークンは環境変数へ渡す:
 
-```json
-{
-	"mcpServers": {
-		"timetree-relay": {
-			"command": "python",
-			"args": ["<リポジトリの絶対パス>/scripts/timetree_mcp.py"],
-			"env": { "TIMETREE_RELAY_API_TOKEN": "<トークン>" }
-		}
-	}
-}
+```toml
+[mcp_servers.timetree]
+command = 'C:/Users/ron06/AppData/Local/Programs/Python/Python314/python.exe'
+args = ['<リポジトリの絶対パス>/scripts/timetree_mcp.py']
+startup_timeout_sec = 20
+tool_timeout_sec = 120
+
+[mcp_servers.timetree.env]
+TIMETREE_RELAY_API_TOKEN = '<トークン>'
+```
+
+## 接続確認
+
+stdio経由の動作確認には `scripts/mcp_smoke.py` を使う。Relayが稼働していれば、初期化・ツール一覧・`timetree_status`・`timetree_list_calendars`（読み取りのみ）を検証する。
+
+```powershell
+$env:PYTHONUTF8 = '1'
+python scripts/mcp_smoke.py
 ```
 
 ## ツール一覧
