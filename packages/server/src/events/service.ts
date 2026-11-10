@@ -173,7 +173,8 @@ export class EventService {
 		this.#transition(job.id, "validating");
 		try {
 			if (client.state !== "ready") {
-				throw new TimeTreeError("SESSION_NOT_READY", "TimeTreeのセッションが失効しています");
+				// セッション状態が未確定なら一度だけ確認する。自動再ログインは行わない。
+				await client.checkSession();
 			}
 			const timezone = input.timezone ?? this.#defaultTimezone;
 			const allDay = input.allDay ?? "date" in input.start;
@@ -252,7 +253,8 @@ export class EventService {
 		this.#transition(job.id, "validating");
 		try {
 			if (client.state !== "ready") {
-				throw new TimeTreeError("SESSION_NOT_READY", "TimeTreeのセッションが失効しています");
+				// セッション状態が未確定なら一度だけ確認する。自動再ログインは行わない。
+				await client.checkSession();
 			}
 			const events = await client.listEvents(input.calendarId);
 			const target = events.find((event) => event.id === input.eventId);
