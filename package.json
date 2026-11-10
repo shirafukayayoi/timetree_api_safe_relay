@@ -1,0 +1,33 @@
+{
+	"name": "timetree-api-safe-workspace",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "A localhost-only relay for adding, listing, and deleting events on the user's own TimeTree calendars via the TimeTree Web client.",
+	"scripts": {
+		"build": "pnpm -r run build",
+		"clean": "pnpm -r run clean",
+		"dev:relay": "pnpm --filter timetree-api-safe-relay dev",
+		"start:relay": "pnpm --filter timetree-api-safe-relay start",
+		"sessions:export": "pnpm --filter timetree-api-safe-relay exec tsx ../../scripts/export-session.ts",
+		"test": "pnpm -r run test",
+		"test:live": "pnpm --filter timetree-api-safe-relay exec node --import tsx/esm ../../scripts/timetree-live-smoke.ts",
+		"type-check": "pnpm -r run type-check",
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"check": "biome check ."
+	},
+	"keywords": [
+		"timetree",
+		"relay",
+		"typescript"
+	],
+	"license": "MIT",
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.16",
+		"@types/node": "^25.0.2",
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.18"
+	},
+	"packageManager": "pnpm@11.5.0"
+}

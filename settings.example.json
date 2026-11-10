@@ -1,0 +1,26 @@
+{
+	"port": 3100,
+	"logLevel": "info",
+	"defaultTimezone": "Asia/Tokyo",
+	"sessionCheckIntervalSeconds": 30,
+	"requestTimeoutMs": 30000,
+	"accounts": {
+		"enabled": true,
+		"accountSelectionFile": "../../work/skill-relay/selected-account.json"
+	},
+	"events": {
+		"enabled": true,
+		"stateDir": "./event_data",
+		"operationTimeoutMs": 60000
+	},
+	"profiles": [
+		{
+			"name": "account1",
+			"home": "https://timetreeapp.com/",
+			"browser": {
+				"type": "http",
+				"sessionFile": "../../private_sessions/account1.json"
+			}
+		}
+	]
+}

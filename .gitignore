@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+settings.json
+private_sessions/
+packages/server/user_data/
+packages/server/event_data/
+packages/server/work/
+.vitest/
