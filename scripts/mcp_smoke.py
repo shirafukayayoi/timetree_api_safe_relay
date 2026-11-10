@@ -1,4 +1,4 @@
-"""timetree_mcp.py をstdio JSON-RPCで起動し、読み取りツールを検証する。"""
+"""TimeTree MCP（Drive正本）をstdio JSON-RPCで起動し、読み取りツールを検証する。"""
 
 import json
 import os
@@ -7,13 +7,16 @@ import sys
 from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[1]
+MCP_SCRIPT = os.environ.get("TIMETREE_MCP_SCRIPT") or (
+	r"G:\マイドライブ\I am you\Agent\MCP\timetree\TimeTree-Mcp.py"
+)
 env = dict(os.environ)
 token_path = REPOSITORY / "packages" / "server" / "work" / "relay-token.txt"
 if token_path.is_file():
 	env["TIMETREE_RELAY_API_TOKEN"] = token_path.read_text(encoding="utf-8").strip()
 
 proc = subprocess.Popen(
-	[sys.executable, str(REPOSITORY / "scripts" / "timetree_mcp.py")],
+	[sys.executable, MCP_SCRIPT],
 	stdin=subprocess.PIPE,
 	stdout=subprocess.PIPE,
 	stderr=subprocess.PIPE,

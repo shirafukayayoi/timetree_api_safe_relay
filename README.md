@@ -21,7 +21,7 @@ TimeTreeの公式OAuth APIは2023年12月に終了しました。本RelayはTime
 
 - `timetree-api-safe-contracts`: 操作・ジョブ・エラーのzod契約
 - `timetree-api-safe-relay`: localhost限定のHTTP relay（Hono）
-- `scripts/timetree_mcp.py`: stdio MCPサーバー
+- `scripts/mcp_smoke.py`: MCP（Drive正本 `Agent/MCP/timetree`）の動作確認スモーク
 
 固定操作は次の5つだけです:
 

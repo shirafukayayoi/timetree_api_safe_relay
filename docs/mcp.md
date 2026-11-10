@@ -2,35 +2,19 @@
 
 HTTPモードのRelayをstdio MCPとして利用できます。予定の確認・追加・削除をエージェントから依頼できます。
 
-## 導入
+MCP本体の正本は `G:/マイドライブ/I am you/Agent/MCP/timetree` です。導入手順・依存定義・登録例は正本の `README.md` を参照してください。このリポジトリはRelay（サーバー本体）と、MCPの動作確認用スモーク（`scripts/mcp_smoke.py`）を提供します。
 
-```powershell
-pip install -r scripts/mcp-requirements.txt
-```
+## 環境変数
 
-環境変数:
-
-- `TIMETREE_RELAY_API_TOKEN`：RelayのBearerトークン（必須）
+- `TIMETREE_RELAY_REPOSITORY`：Relayリポジトリの絶対パス（MCPが省略時は既定の配置先を使う）
+- `TIMETREE_RELAY_API_TOKEN`：RelayのBearerトークン（省略時は `packages/server/work/relay-token.txt` を使う）
 - `TIMETREE_RELAY_SETTINGS`：settings.jsonのパス（省略時は `packages/server/settings.json` → リポジトリルートの順に探す）
 
 Relayが停止している場合はMCPが `pnpm start:relay` を起動します。
 
-Codex等への登録例（`~/.codex/config.toml`）。トークンは環境変数へ渡す:
-
-```toml
-[mcp_servers.timetree]
-command = 'C:/Users/ron06/AppData/Local/Programs/Python/Python314/python.exe'
-args = ['<リポジトリの絶対パス>/scripts/timetree_mcp.py']
-startup_timeout_sec = 20
-tool_timeout_sec = 120
-
-[mcp_servers.timetree.env]
-TIMETREE_RELAY_API_TOKEN = '<トークン>'
-```
-
 ## 接続確認
 
-stdio経由の動作確認には `scripts/mcp_smoke.py` を使う。Relayが稼働していれば、初期化・ツール一覧・`timetree_status`・`timetree_list_calendars`（読み取りのみ）を検証する。
+stdio経由の動作確認には `scripts/mcp_smoke.py` を使う。Drive正本のMCPを起動し、初期化・ツール一覧・`timetree_status`・`timetree_list_calendars`（読み取りのみ）を検証する。
 
 ```powershell
 $env:PYTHONUTF8 = '1'
