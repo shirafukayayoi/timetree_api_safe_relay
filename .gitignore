@@ -7,3 +7,6 @@ packages/server/user_data/
 packages/server/event_data/
 packages/server/work/
 .vitest/
+
+__pycache__/
+*.pyc
