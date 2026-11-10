@@ -10,3 +10,5 @@ packages/server/work/
 
 __pycache__/
 *.pyc
+
+work/
