@@ -12,9 +12,9 @@ import { loadSettings } from "./utils/settings.js";
 const settingsPath =
 	process.env.TIMETREE_RELAY_SETTINGS !== undefined
 		? resolve(process.env.TIMETREE_RELAY_SETTINGS)
-		: [resolve(process.cwd(), "settings.json"), resolve(process.cwd(), "../../settings.json")].find(
-				(path) => existsSync(path),
-			) ?? resolve(process.cwd(), "../../settings.json");
+		: ([resolve(process.cwd(), "settings.json"), resolve(process.cwd(), "../../settings.json")].find((path) =>
+				existsSync(path),
+			) ?? resolve(process.cwd(), "../../settings.json"));
 
 const settings = loadSettings(settingsPath);
 
@@ -24,13 +24,14 @@ if (!token || token.length < 16) {
 	process.exit(1);
 }
 
-const logger = pino({
-	level: settings.logLevel,
-	transport:
-		process.env.NODE_ENV === "production"
-			? undefined
-			: { target: "pino-pretty", options: { colorize: true, translateTime: "SYS:HH:MM:ss" } },
-});
+const loggerOptions: pino.LoggerOptions = { level: settings.logLevel };
+if (process.env.NODE_ENV !== "production") {
+	loggerOptions.transport = {
+		target: "pino-pretty",
+		options: { colorize: true, translateTime: "SYS:HH:MM:ss" },
+	};
+}
+const logger = pino(loggerOptions);
 
 const profiles: RelayProfile[] = settings.profiles.map((profile) => ({
 	name: profile.name,

@@ -64,9 +64,9 @@ const createdPayload = {
 const response = await client.createEvent(calendar.id, createdPayload);
 const createdId =
 	typeof response === "object" && response !== null
-		? ((response as Record<string, unknown>).event as Record<string, unknown> | undefined)?.uuid ??
+		? (((response as Record<string, unknown>).event as Record<string, unknown> | undefined)?.uuid ??
 			(response as Record<string, unknown>).uuid ??
-			(response as Record<string, unknown>).id
+			(response as Record<string, unknown>).id)
 		: null;
 if (typeof createdId !== "string") {
 	throw new Error(`追加応答からイベントIDを確認できませんでした: ${JSON.stringify(response)}`);

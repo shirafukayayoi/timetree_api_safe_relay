@@ -1,12 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type {
-	Calendar,
-	CurrentUser,
-	EventBoundary,
-	RelayErrorCode,
-	TimeTreeEvent,
-} from "timetree-api-safe-contracts";
+import type { Calendar, CurrentUser, EventBoundary, TimeTreeEvent } from "timetree-api-safe-contracts";
 import { TimeTreeError } from "./errors.js";
 
 const WEB_BASE = "https://timetreeapp.com";
@@ -46,13 +40,11 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const asNumber = (value: unknown): number | null => {
 	if (typeof value === "number" && Number.isFinite(value)) return value;
-	if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)))
-		return Number(value);
+	if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) return Number(value);
 	return null;
 };
 
-const asNullableText = (value: unknown): string | null =>
-	typeof value === "string" ? value : null;
+const asNullableText = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 const msToIso = (value: unknown): string | null => {
 	const ms = asNumber(value);
@@ -70,12 +62,16 @@ export const zonedToEpochMs = (
 	timeZone: string,
 ): number => {
 	const offsetAt = (utcMs: number): number => {
-		const parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" })
-			.formatToParts(new Date(utcMs));
+		let parts: Intl.DateTimeFormatPart[];
+		try {
+			parts = new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "longOffset" }).formatToParts(new Date(utcMs));
+		} catch {
+			throw new TimeTreeError("INVALID_INPUT", `タイムゾーンを解釈できません: ${timeZone}`);
+		}
 		const name = parts.find((part) => part.type === "timeZoneName")?.value ?? "";
 		const match = /^GMT([+-])(\d{2}):(\d{2})$/.exec(name);
 		if (!match) {
-			throw new TimeTreeError("INVALID_INPUT", `タイムゾーンを解釈できません: ${timeZone}`);
+			throw new TimeTreeError("INVALID_INPUT", `タイムゾーンのオフセットを取得できません: ${timeZone}`);
 		}
 		const sign = match[1] === "-" ? -1 : 1;
 		return sign * (Number(match[2]) * 60 + Number(match[3])) * 60_000;
@@ -181,7 +177,7 @@ export class TimeTreeClient {
 		const setCookies =
 			typeof response.headers.getSetCookie === "function"
 				? response.headers.getSetCookie()
-				: response.headers.get("set-cookie")?.split(/,(?=[^;]+?=)/) ?? [];
+				: (response.headers.get("set-cookie")?.split(/,(?=[^;]+?=)/) ?? []);
 		let changed = false;
 		for (const line of setCookies) {
 			const [pair] = line.split(";");
@@ -207,10 +203,12 @@ export class TimeTreeClient {
 	#writeSessionFile(): void {
 		const data: SessionFileData = {
 			cookies: [...this.#cookies.entries()].map(([name, value]) => ({ name, value })),
-			accountId: this.#user?.id,
-			accountName: this.#user?.name ?? undefined,
 			exportedAt: new Date().toISOString(),
 		};
+		if (this.#user) {
+			data.accountId = this.#user.id;
+			if (this.#user.name !== null) data.accountName = this.#user.name;
+		}
 		const directory = dirname(this.sessionFile);
 		mkdirSync(directory, { recursive: true });
 		const temp = `${this.sessionFile}.tmp`;
@@ -233,7 +231,7 @@ export class TimeTreeClient {
 		}
 	}
 
-	#headers(opts: { json?: boolean; csrf?: boolean }): Record<string, string> {
+	#headers(opts: { json?: boolean; csrf?: boolean } = {}): Record<string, string> {
 		const headers: Record<string, string> = { "X-Timetreea": TIMETREEA_HEADER };
 		if (opts.json) headers["Content-Type"] = "application/json";
 		if (opts.csrf && this.#csrfToken) headers["X-CSRF-Token"] = this.#csrfToken;
@@ -251,11 +249,12 @@ export class TimeTreeClient {
 		const unsafe = method !== "GET";
 		if (unsafe && !this.#csrfToken) await this.#refreshCsrfToken();
 		const attempt = async (): Promise<ApiResult> => {
-			const response = await this.#rawFetch(`${API_BASE}${path}`, {
+			const init: RequestInit = {
 				method,
 				headers: this.#headers({ json: opts.json !== undefined, csrf: unsafe }),
-				body: opts.json === undefined ? undefined : JSON.stringify(opts.json),
-			});
+			};
+			if (opts.json !== undefined) init.body = JSON.stringify(opts.json);
+			const response = await this.#rawFetch(`${API_BASE}${path}`, init);
 			this.#absorbSetCookies(response);
 			return { status: response.status, body: await this.#readBody(response) };
 		};
@@ -267,10 +266,7 @@ export class TimeTreeClient {
 		}
 		this.#checkDefinitiveRejection(result.status);
 		if (!opts.expect.includes(result.status)) {
-			throw new TimeTreeError(
-				"UPSTREAM_CHANGED",
-				`TimeTreeが予期しない応答を返しました (HTTP ${result.status})`,
-			);
+			throw new TimeTreeError("UPSTREAM_CHANGED", `TimeTreeが予期しない応答を返しました (HTTP ${result.status})`);
 		}
 		return result;
 	}
@@ -305,16 +301,10 @@ export class TimeTreeClient {
 		this.#absorbSetCookies(response);
 		this.#checkDefinitiveRejection(response.status);
 		if (response.status !== 200) {
-			throw new TimeTreeError(
-				"UPSTREAM_CHANGED",
-				`CSRFトークンを取得できませんでした (HTTP ${response.status})`,
-			);
+			throw new TimeTreeError("UPSTREAM_CHANGED", `CSRFトークンを取得できませんでした (HTTP ${response.status})`);
 		}
 		const html = await response.text();
-		const patterns = [
-			/<meta\s+name="csrf-token"\s+content="([^"]+)"/,
-			/<meta\s+content="([^"]+)"\s+name="csrf-token"/,
-		];
+		const patterns = [/<meta\s+name="csrf-token"\s+content="([^"]+)"/, /<meta\s+content="([^"]+)"\s+name="csrf-token"/];
 		let token: string | null = null;
 		for (const pattern of patterns) {
 			const match = pattern.exec(html);

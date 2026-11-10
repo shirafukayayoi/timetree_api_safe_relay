@@ -11,5 +11,4 @@ export class TimeTreeError extends Error {
 	}
 }
 
-export const isTimeTreeError = (error: unknown): error is TimeTreeError =>
-	error instanceof TimeTreeError;
+export const isTimeTreeError = (error: unknown): error is TimeTreeError => error instanceof TimeTreeError;

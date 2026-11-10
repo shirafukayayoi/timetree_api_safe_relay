@@ -72,9 +72,7 @@ describe("deleteEventInputSchema", () => {
 	});
 
 	it("allowSeries: true を受け入れる", () => {
-		expect(
-			deleteEventInputSchema.safeParse({ calendarId: "1", eventId: "abc", allowSeries: true }).success,
-		).toBe(true);
+		expect(deleteEventInputSchema.safeParse({ calendarId: "1", eventId: "abc", allowSeries: true }).success).toBe(true);
 	});
 });
 

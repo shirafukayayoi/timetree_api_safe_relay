@@ -55,11 +55,7 @@ export class EventJobStore {
 		return [...this.#jobs.values()];
 	}
 
-	findByKey(
-		profile: string,
-		kind: JobKind,
-		key: string,
-	): { job: EventJob; hash: string } | undefined {
+	findByKey(profile: string, kind: JobKind, key: string): { job: EventJob; hash: string } | undefined {
 		const entry = this.#keys.get(this.#keyOf(profile, kind, key));
 		if (!entry) return undefined;
 		const job = this.#jobs.get(entry.jobId);

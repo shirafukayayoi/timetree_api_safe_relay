@@ -26,14 +26,14 @@ export const settingsSchema = z.strictObject({
 			enabled: z.boolean().default(true),
 			accountSelectionFile: z.string().min(1).default("../../work/skill-relay/selected-account.json"),
 		})
-		.default({}),
+		.prefault({}),
 	events: z
 		.strictObject({
 			enabled: z.boolean().default(true),
 			stateDir: z.string().min(1).default("./event_data"),
 			operationTimeoutMs: z.number().int().min(1000).default(60_000),
 		})
-		.default({}),
+		.prefault({}),
 	profiles: z.array(profileSchema).min(1),
 });
 

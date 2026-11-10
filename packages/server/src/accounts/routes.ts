@@ -12,10 +12,7 @@ export const mountAccountRoutes = (app: Hono, accounts: AccountService): void =>
 		bodyLimit({
 			maxSize: 4096,
 			onError: (c) =>
-				c.json(
-					{ error: { code: "INVALID_INPUT", message: "要求のJSONは4KiB以下で指定してください" } },
-					413,
-				),
+				c.json({ error: { code: "INVALID_INPUT", message: "要求のJSONは4KiB以下で指定してください" } }, 413),
 		}),
 	);
 

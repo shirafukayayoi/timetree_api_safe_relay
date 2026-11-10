@@ -66,9 +66,7 @@ export const createApp = ({ profiles, token, accounts, events }: CreateAppOption
 	mountAccountRoutes(app, accounts);
 	mountEventRoutes({ app, service: events, queues, resolveProfile });
 
-	app.notFound((c: Context) =>
-		c.json({ error: { code: "NOT_FOUND", message: "要求されたパスは存在しません" } }, 404),
-	);
+	app.notFound((c: Context) => c.json({ error: { code: "NOT_FOUND", message: "要求されたパスは存在しません" } }, 404));
 
 	return app;
 };

@@ -68,10 +68,7 @@ export class AccountService {
 		}
 		const user = await profile.client.checkSession();
 		if (input.expectedAccountId !== undefined && input.expectedAccountId !== user.id) {
-			throw new TimeTreeError(
-				"INVALID_INPUT",
-				"指定されたアカウントIDとログイン中のTimeTreeアカウントが一致しません",
-			);
+			throw new TimeTreeError("INVALID_INPUT", "指定されたアカウントIDとログイン中のTimeTreeアカウントが一致しません");
 		}
 		const selected: SelectedAccount = {
 			profile: profile.name,

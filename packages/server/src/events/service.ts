@@ -7,7 +7,7 @@ import type {
 	RelayErrorCode,
 } from "timetree-api-safe-contracts";
 import type { RelayProfile, Logger } from "../types.js";
-import { SerialQueue } from "../utils/queue.js";
+import type { SerialQueue } from "../utils/queue.js";
 import { boundaryToEpochMs, type TimeTreeClient } from "../timetree/client.js";
 import { isTimeTreeError, TimeTreeError } from "../timetree/errors.js";
 import { EventJobStore, newJobId, requestHash } from "./store.js";
@@ -190,8 +190,7 @@ export class EventService {
 			if (!calendars.some((calendar) => calendar.id === input.calendarId)) {
 				throw new TimeTreeError("NOT_FOUND", "指定されたカレンダーが見つかりません");
 			}
-			const attendees =
-				input.attendees ?? (client.currentUser ? [client.currentUser.id] : []);
+			const attendees = input.attendees ?? (client.currentUser ? [client.currentUser.id] : []);
 			const payload = {
 				title: input.title,
 				all_day: allDay,
@@ -215,10 +214,7 @@ export class EventService {
 				createdId = extractEventId(response);
 			} catch (error) {
 				if (isTimeTreeError(error) && error.code === "TRANSPORT_ERROR") {
-					this.#markUnknown(
-						job.id,
-						"追加要求を送信しましたが結果を確認できませんでした。TimeTree上で確認してください",
-					);
+					this.#markUnknown(job.id, "追加要求を送信しましたが結果を確認できませんでした。TimeTree上で確認してください");
 					return;
 				}
 				throw error;
@@ -227,11 +223,7 @@ export class EventService {
 			try {
 				const events = await client.listEvents(input.calendarId);
 				const found = createdId ? events.find((event) => event.id === createdId) : undefined;
-				if (
-					found &&
-					found.title === input.title &&
-					Date.parse(found.startAt) === startMs
-				) {
+				if (found && found.title === input.title && Date.parse(found.startAt) === startMs) {
 					this.#transition(job.id, "created", { eventId: createdId, failure: null });
 					this.#logger.info(`予定を追加しました: ${createdId}`);
 					return;
@@ -278,10 +270,7 @@ export class EventService {
 				await client.deleteEvent(input.calendarId, input.eventId);
 			} catch (error) {
 				if (isTimeTreeError(error) && error.code === "TRANSPORT_ERROR") {
-					this.#markUnknown(
-						job.id,
-						"削除要求を送信しましたが結果を確認できませんでした。TimeTree上で確認してください",
-					);
+					this.#markUnknown(job.id, "削除要求を送信しましたが結果を確認できませんでした。TimeTree上で確認してください");
 					return;
 				}
 				throw error;
@@ -289,19 +278,13 @@ export class EventService {
 			try {
 				const after = await client.listEvents(input.calendarId);
 				if (after.some((event) => event.id === input.eventId)) {
-					this.#markUnknown(
-						job.id,
-						"削除要求は受理されましたが、予定がまだ存在します。TimeTree上で確認してください",
-					);
+					this.#markUnknown(job.id, "削除要求は受理されましたが、予定がまだ存在します。TimeTree上で確認してください");
 					return;
 				}
 				this.#transition(job.id, "deleted", { failure: null });
 				this.#logger.info(`予定を削除しました: ${input.eventId}`);
 			} catch (error) {
-				this.#markUnknown(
-					job.id,
-					"削除要求は受理されましたが、消失確認に失敗しました。TimeTree上で確認してください",
-				);
+				this.#markUnknown(job.id, "削除要求は受理されましたが、消失確認に失敗しました。TimeTree上で確認してください");
 				this.#logger.warn(`削除後の消失確認に失敗: ${String(error)}`);
 			}
 		} catch (error) {
@@ -319,7 +302,8 @@ const extractEventId = (response: unknown): string | null => {
 	}
 	for (const candidate of candidates) {
 		if (!isRecord(candidate)) continue;
-		const id = typeof candidate.uuid === "string" ? candidate.uuid : typeof candidate.id === "string" ? candidate.id : null;
+		const id =
+			typeof candidate.uuid === "string" ? candidate.uuid : typeof candidate.id === "string" ? candidate.id : null;
 		if (id) return id;
 	}
 	return null;

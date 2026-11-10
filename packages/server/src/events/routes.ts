@@ -1,10 +1,14 @@
 import type { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import {
+	type CreateEventInput,
+	type DeleteEventInput,
+	type EventJob,
+	type ListEventsInput,
 	idempotencyKeySchema,
 	parseOperationInput,
-	type RelayProfile,
 } from "timetree-api-safe-contracts";
+import type { RelayProfile } from "../types.js";
 import type { EventService } from "./service.js";
 import type { SerialQueue } from "../utils/queue.js";
 import { fail } from "../utils/errors.js";
@@ -16,8 +20,7 @@ export type MountEventRoutesOptions = {
 	resolveProfile: (header: string | undefined) => RelayProfile | undefined;
 };
 
-const readKey = (raw: string | undefined): string =>
-	typeof raw === "string" ? raw.trim() : "";
+const readKey = (raw: string | undefined): string => (typeof raw === "string" ? raw.trim() : "");
 
 export const mountEventRoutes = ({ app, service, queues, resolveProfile }: MountEventRoutesOptions): void => {
 	app.use(
@@ -25,10 +28,7 @@ export const mountEventRoutes = ({ app, service, queues, resolveProfile }: Mount
 		bodyLimit({
 			maxSize: 8192,
 			onError: (c) =>
-				c.json(
-					{ error: { code: "INVALID_INPUT", message: "要求のJSONは8KiB以下で指定してください" } },
-					413,
-				),
+				c.json({ error: { code: "INVALID_INPUT", message: "要求のJSONは8KiB以下で指定してください" } }, 413),
 		}),
 	);
 
@@ -51,7 +51,7 @@ export const mountEventRoutes = ({ app, service, queues, resolveProfile }: Mount
 		const queue = queues.get(profile.name);
 		if (!queue) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
 		const query = c.req.query();
-		let input;
+		let input: ListEventsInput;
 		try {
 			input = parseOperationInput("listEvents", {
 				calendarId: query.calendarId,
@@ -97,13 +97,13 @@ export const mountEventRoutes = ({ app, service, queues, resolveProfile }: Mount
 		} catch {
 			return fail(c, { code: "INVALID_INPUT", message: "JSON本文を解析できません" });
 		}
-		let input;
+		let input: CreateEventInput;
 		try {
 			input = parseOperationInput("createEvent", raw);
 		} catch (error) {
 			return fail(c, error);
 		}
-		let created;
+		let created: { job: EventJob; created: boolean };
 		try {
 			created = service.createJob(profile, keyResult.data, input);
 		} catch (error) {
@@ -132,13 +132,13 @@ export const mountEventRoutes = ({ app, service, queues, resolveProfile }: Mount
 		} catch {
 			return fail(c, { code: "INVALID_INPUT", message: "JSON本文を解析できません" });
 		}
-		let input;
+		let input: DeleteEventInput;
 		try {
 			input = parseOperationInput("deleteEvent", raw);
 		} catch (error) {
 			return fail(c, error);
 		}
-		let created;
+		let created: { job: EventJob; created: boolean };
 		try {
 			created = service.deleteJob(profile, keyResult.data, input);
 		} catch (error) {

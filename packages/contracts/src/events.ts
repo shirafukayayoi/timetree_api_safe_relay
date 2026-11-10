@@ -1,13 +1,7 @@
 import { z } from "zod";
 
 /** TimeTree Web クライアントが使う非公開 API のうち、Relay が利用する固定操作。 */
-export const operationNames = [
-	"getCurrentUser",
-	"listCalendars",
-	"listEvents",
-	"createEvent",
-	"deleteEvent",
-] as const;
+export const operationNames = ["getCurrentUser", "listCalendars", "listEvents", "createEvent", "deleteEvent"] as const;
 
 export type OperationName = (typeof operationNames)[number];
 
@@ -33,9 +27,9 @@ export const eventIdSchema = z
 	.max(128)
 	.regex(/^[A-Za-z0-9_-]+$/, "eventId は TimeTree のイベントID形式で指定してください");
 
-const nullableText = z.string().nullable();
+export const nullableText = z.string().nullable();
 const nullableUrl = z.string().url().nullable();
-const nonNegativeInteger = z.number().int().nonnegative();
+export const nonNegativeInteger = z.number().int().nonnegative();
 
 /** IANA タイムゾーン名（例: Asia/Tokyo）。 */
 export const timezoneSchema = z
@@ -49,9 +43,7 @@ const isoInstantSchema = z
 	.string()
 	.regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/, "ISO 8601 の日時で指定してください");
 
-const dateOnlySchema = z
-	.string()
-	.regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 形式で指定してください");
+const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD 形式で指定してください");
 
 /** 終日予定の日付、または時刻付き予定の日時。 */
 export const eventBoundarySchema = z.union([
@@ -185,8 +177,7 @@ export type EventJob = z.infer<typeof eventJobSchema>;
 /** ジョブの進行中（未確定）状態。再起動時は unknown または failed に移す。 */
 export const inFlightJobStates = ["queued", "validating", "creating", "deleting"] as const;
 
-export const isJobInFlight = (state: JobState): boolean =>
-	(inFlightJobStates as readonly string[]).includes(state);
+export const isJobInFlight = (state: JobState): boolean => (inFlightJobStates as readonly string[]).includes(state);
 
 /** 操作名と入力スキーマの対応。すべて strict object である。 */
 export const operationInputSchemas = {

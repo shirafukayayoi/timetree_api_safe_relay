@@ -3,8 +3,9 @@ import { timingSafeEqual } from "node:crypto";
 /** Relay は localhost からのアクセスだけを受け付ける。 */
 export const isAllowedHost = (host: string | undefined): boolean => {
 	if (!host) return false;
-	const hostname = host.split(":")[0] ?? "";
-	return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "[::1]";
+	// IPv6のブラケット形式 ([::1]:3000) にも対応する。
+	const hostname = host.startsWith("[") ? (host.split("]")[0]?.slice(1) ?? "") : (host.split(":")[0] ?? "");
+	return hostname === "127.0.0.1" || hostname === "localhost" || hostname === "::1";
 };
 
 /** Bearer トークンを一定時間比較で検証する。 */

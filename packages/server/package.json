@@ -12,8 +12,13 @@
 			"import": "./dist/index.js"
 		}
 	},
-	"bin": { "timetree-api-safe-relay": "dist/server.js" },
-	"files": ["dist", "README.md"],
+	"bin": {
+		"timetree-api-safe-relay": "dist/server.js"
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"dev": "tsx watch src/server.ts",
 		"build": "rimraf dist && tsc -p tsconfig.json",
