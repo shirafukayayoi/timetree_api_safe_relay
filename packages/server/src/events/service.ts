@@ -12,6 +12,14 @@ import { boundaryToEpochMs, type TimeTreeClient } from "../timetree/client.js";
 import { isTimeTreeError, TimeTreeError } from "../timetree/errors.js";
 import { EventJobStore, newJobId, requestHash } from "./store.js";
 
+/** 終日予定の日付をTimeTreeの表現（当日の00:00 UTC）へ変換する。 */
+const dateOnlyToUtcMidnight = (date: string): number => {
+	const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+	if (!match) throw new TimeTreeError("INVALID_INPUT", "日付は YYYY-MM-DD 形式で指定してください");
+	const [, year, month, day] = match;
+	return Date.UTC(Number(year), Number(month) - 1, Number(day));
+};
+
 export type EventServiceOptions = {
 	stateDir: string;
 	defaultTimezone: string;
@@ -178,14 +186,33 @@ export class EventService {
 			}
 			const timezone = input.timezone ?? this.#defaultTimezone;
 			const allDay = input.allDay ?? "date" in input.start;
-			const startMs = boundaryToEpochMs(input.start, timezone);
+			let startMs: number;
 			let endMs: number;
-			if (input.end !== undefined) {
-				endMs = boundaryToEpochMs(input.end, timezone);
-			} else if (allDay) {
-				endMs = startMs;
+			/** 終日予定のタイムゾーン。TimeTreeは終日をUTCの0時で保存する。 */
+			let payloadTimezone = timezone;
+			if (allDay) {
+				if (!("date" in input.start)) {
+					throw new TimeTreeError("INVALID_INPUT", "終日予定には start を date 形式で指定してください");
+				}
+				// TimeTreeの終日表現: 開始=当日の00:00 UTC、単日は終了=開始、複数日は終了=最終日の翌日00:00 UTC。
+				startMs = dateOnlyToUtcMidnight(input.start.date);
+				if (input.end !== undefined) {
+					if (!("date" in input.end)) {
+						throw new TimeTreeError("INVALID_INPUT", "終日予定の end は date 形式で指定してください");
+					}
+					const exclusiveEnd = dateOnlyToUtcMidnight(input.end.date);
+					endMs = exclusiveEnd - startMs > 86_400_000 ? exclusiveEnd : startMs;
+				} else {
+					endMs = startMs;
+				}
+				payloadTimezone = "UTC";
 			} else {
-				throw new TimeTreeError("INVALID_INPUT", "時刻付きの予定には end を指定してください");
+				startMs = boundaryToEpochMs(input.start, timezone);
+				if (input.end !== undefined) {
+					endMs = boundaryToEpochMs(input.end, timezone);
+				} else {
+					throw new TimeTreeError("INVALID_INPUT", "時刻付きの予定には end を指定してください");
+				}
 			}
 			const calendars = await client.listCalendars();
 			if (!calendars.some((calendar) => calendar.id === input.calendarId)) {
@@ -196,9 +223,9 @@ export class EventService {
 				title: input.title,
 				all_day: allDay,
 				start_at: startMs,
-				start_timezone: timezone,
+				start_timezone: payloadTimezone,
 				end_at: endMs,
-				end_timezone: timezone,
+				end_timezone: payloadTimezone,
 				label_id: input.labelId ?? 1,
 				note: input.note ?? "",
 				location: input.location ?? "",

@@ -109,9 +109,10 @@ describe("EventService 追加ジョブ", () => {
 		expect(finished.failure?.code).toBe("INVALID_INPUT");
 	});
 
-	it("終日予定はendなしで追加できる", async () => {
+	it("終日予定はendなしで、UTCの0時として追加できる", async () => {
 		const service = serviceIn(tempDir());
-		const profile = profileOf(makeFakeClient());
+		const client = makeFakeClient();
+		const profile = profileOf(client);
 		const { job } = service.createJob(profile, "key-1", {
 			calendarId: "cal-1",
 			title: "旅行",
@@ -121,6 +122,42 @@ describe("EventService 追加ジョブ", () => {
 		});
 		const finished = await enqueueAndWait(service, profile, job.id);
 		expect(finished.state).toBe("created");
+		const payload = (client as unknown as { lastCreatePayload: Record<string, unknown> }).lastCreatePayload;
+		expect(payload.start_at).toBe(Date.UTC(2026, 10, 20));
+		expect(payload.end_at).toBe(Date.UTC(2026, 10, 20));
+		expect(payload.start_timezone).toBe("UTC");
+		expect(payload.end_timezone).toBe("UTC");
+	});
+
+	it("終日予定のendは最終日の翌日（複数日）または開始日と同日（単日）に正規化する", async () => {
+		const service = serviceIn(tempDir());
+		const client = makeFakeClient();
+		const profile = profileOf(client);
+		// Google形式の排他的終了日 12/5〜12/6 は単日 12/5 になる
+		const single = service.createJob(profile, "key-single", {
+			calendarId: "cal-1",
+			title: "検定",
+			allDay: true,
+			start: { date: "2026-12-05" },
+			end: { date: "2026-12-06" },
+		});
+		await enqueueAndWait(service, profile, single.job.id);
+		let payload = (client as unknown as { lastCreatePayload: Record<string, unknown> }).lastCreatePayload;
+		expect(payload.start_at).toBe(Date.UTC(2026, 11, 5));
+		expect(payload.end_at).toBe(Date.UTC(2026, 11, 5));
+		// 3日分（12/5〜12/8排他的）は終了が12/7になる
+		const multi = service.createJob(profile, "key-multi", {
+			calendarId: "cal-1",
+			title: "卒業旅行",
+			allDay: true,
+			start: { date: "2026-12-05" },
+			end: { date: "2026-12-08" },
+		});
+		await enqueueAndWait(service, profile, multi.job.id);
+		payload = (client as unknown as { lastCreatePayload: Record<string, unknown> }).lastCreatePayload;
+		expect(payload.start_at).toBe(Date.UTC(2026, 11, 5));
+		expect(payload.end_at).toBe(Date.UTC(2026, 11, 8));
+		expect(multi.job.state !== "queued").toBe(true);
 	});
 
 	it("指定したラベルと出席者で追加する", async () => {
