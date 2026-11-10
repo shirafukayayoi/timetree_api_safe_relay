@@ -1,0 +1,13 @@
+/** プロファイル単位で処理を直列化するキュー。 */
+export class SerialQueue {
+	#tail: Promise<unknown> = Promise.resolve();
+
+	run<T>(task: () => Promise<T>): Promise<T> {
+		const result = this.#tail.then(task, task);
+		this.#tail = result.then(
+			() => undefined,
+			() => undefined,
+		);
+		return result;
+	}
+}

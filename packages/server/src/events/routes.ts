@@ -1,0 +1,156 @@
+import type { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import {
+	idempotencyKeySchema,
+	parseOperationInput,
+	type RelayProfile,
+} from "timetree-api-safe-contracts";
+import type { EventService } from "./service.js";
+import type { SerialQueue } from "../utils/queue.js";
+import { fail } from "../utils/errors.js";
+
+export type MountEventRoutesOptions = {
+	app: Hono;
+	service: EventService;
+	queues: Map<string, SerialQueue>;
+	resolveProfile: (header: string | undefined) => RelayProfile | undefined;
+};
+
+const readKey = (raw: string | undefined): string =>
+	typeof raw === "string" ? raw.trim() : "";
+
+export const mountEventRoutes = ({ app, service, queues, resolveProfile }: MountEventRoutesOptions): void => {
+	app.use(
+		"/v1/events*",
+		bodyLimit({
+			maxSize: 8192,
+			onError: (c) =>
+				c.json(
+					{ error: { code: "INVALID_INPUT", message: "要求のJSONは8KiB以下で指定してください" } },
+					413,
+				),
+		}),
+	);
+
+	app.get("/v1/calendars", async (c) => {
+		const profile = resolveProfile(c.req.header("x-profile-name"));
+		if (!profile) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const queue = queues.get(profile.name);
+		if (!queue) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		try {
+			const calendars = await queue.run(() => profile.client.listCalendars());
+			return c.json({ data: { items: calendars.filter((calendar) => calendar.deactivatedAt === null) } });
+		} catch (error) {
+			return fail(c, error);
+		}
+	});
+
+	app.get("/v1/events", async (c) => {
+		const profile = resolveProfile(c.req.header("x-profile-name"));
+		if (!profile) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const queue = queues.get(profile.name);
+		if (!queue) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const query = c.req.query();
+		let input;
+		try {
+			input = parseOperationInput("listEvents", {
+				calendarId: query.calendarId,
+				from: query.from,
+				to: query.to,
+			});
+		} catch (error) {
+			return fail(c, error);
+		}
+		try {
+			const events = await queue.run(() => profile.client.listEvents(input.calendarId));
+			const fromMs = input.from === undefined ? null : Date.parse(input.from);
+			const toMs = input.to === undefined ? null : Date.parse(input.to);
+			const filtered = events.filter((event) => {
+				const startMs = Date.parse(event.startAt);
+				const endMs = Date.parse(event.endAt);
+				if (fromMs !== null && endMs < fromMs) return false;
+				if (toMs !== null && startMs > toMs) return false;
+				return true;
+			});
+			return c.json({ data: { items: filtered } });
+		} catch (error) {
+			return fail(c, error);
+		}
+	});
+
+	app.post("/v1/events", async (c) => {
+		const profile = resolveProfile(c.req.header("x-profile-name"));
+		if (!profile) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const queue = queues.get(profile.name);
+		if (!queue) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const key = readKey(c.req.header("Idempotency-Key"));
+		const keyResult = idempotencyKeySchema.safeParse(key);
+		if (!keyResult.success) {
+			return fail(c, {
+				code: "INVALID_INPUT",
+				message: "Idempotency-Key ヘッダーを1〜128文字の英数字と ._:- で指定してください",
+			});
+		}
+		let raw: unknown;
+		try {
+			raw = await c.req.json();
+		} catch {
+			return fail(c, { code: "INVALID_INPUT", message: "JSON本文を解析できません" });
+		}
+		let input;
+		try {
+			input = parseOperationInput("createEvent", raw);
+		} catch (error) {
+			return fail(c, error);
+		}
+		let created;
+		try {
+			created = service.createJob(profile, keyResult.data, input);
+		} catch (error) {
+			return fail(c, error);
+		}
+		if (created.created) service.enqueue(profile, queue, created.job.id);
+		return c.json({ data: created.job }, created.created ? 202 : 200);
+	});
+
+	app.post("/v1/events/delete", async (c) => {
+		const profile = resolveProfile(c.req.header("x-profile-name"));
+		if (!profile) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const queue = queues.get(profile.name);
+		if (!queue) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const key = readKey(c.req.header("Idempotency-Key"));
+		const keyResult = idempotencyKeySchema.safeParse(key);
+		if (!keyResult.success) {
+			return fail(c, {
+				code: "INVALID_INPUT",
+				message: "Idempotency-Key ヘッダーを1〜128文字の英数字と ._:- で指定してください",
+			});
+		}
+		let raw: unknown;
+		try {
+			raw = await c.req.json();
+		} catch {
+			return fail(c, { code: "INVALID_INPUT", message: "JSON本文を解析できません" });
+		}
+		let input;
+		try {
+			input = parseOperationInput("deleteEvent", raw);
+		} catch (error) {
+			return fail(c, error);
+		}
+		let created;
+		try {
+			created = service.deleteJob(profile, keyResult.data, input);
+		} catch (error) {
+			return fail(c, error);
+		}
+		if (created.created) service.enqueue(profile, queue, created.job.id);
+		return c.json({ data: created.job }, created.created ? 202 : 200);
+	});
+
+	app.get("/v1/event-jobs/:id", (c) => {
+		const job = service.getJob(c.req.param("id"));
+		if (!job) return fail(c, { code: "NOT_FOUND", message: "指定されたジョブが見つかりません" });
+		return c.json({ data: job });
+	});
+};
