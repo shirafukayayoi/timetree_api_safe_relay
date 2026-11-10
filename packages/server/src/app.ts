@@ -47,14 +47,14 @@ export const createApp = ({ profiles, token, accounts, events }: CreateAppOption
 		}
 		await next();
 	});
-	app.use("/profiles", async (c, next) => {
+	app.use("/v1/profiles", async (c, next) => {
 		if (!isAuthorized(c.req.header("authorization"), token)) {
 			return c.json({ error: { code: "AUTH_REQUIRED", message: "Bearerトークンが必要です" } }, 401);
 		}
 		await next();
 	});
 
-	app.get("/profiles", (c) =>
+	app.get("/v1/profiles", (c) =>
 		c.json({
 			profiles: profiles.map((profile) => ({
 				name: profile.name,

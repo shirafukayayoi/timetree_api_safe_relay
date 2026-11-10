@@ -93,6 +93,12 @@ export const calendarSchema = z.strictObject({
 	name: z.string(),
 	aliasCode: nullableText,
 	deactivatedAt: nullableText,
+	labels: z.array(
+		z.strictObject({
+			id: nonNegativeInteger,
+			name: z.string(),
+		}),
+	),
 });
 
 export type Calendar = z.infer<typeof calendarSchema>;

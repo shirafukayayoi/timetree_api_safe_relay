@@ -344,14 +344,28 @@ export class TimeTreeClient {
 			throw new TimeTreeError("UPSTREAM_CHANGED", "TimeTreeのカレンダー応答を読み取れません");
 		}
 		return rawList.map((raw): Calendar => {
-			if (!isRecord(raw) || typeof raw.id !== "string" || typeof raw.name !== "string") {
+			// 実APIではカレンダーIDは数値で返る。
+			const rawId = isRecord(raw) ? raw.id : undefined;
+			const id =
+				typeof rawId === "string" ? rawId : typeof rawId === "number" ? String(rawId) : null;
+			if (!isRecord(raw) || id === null || typeof raw.name !== "string") {
 				throw new TimeTreeError("UPSTREAM_CHANGED", "TimeTreeのカレンダー項目を読み取れません");
 			}
+			const rawLabels = Array.isArray(raw.calendar_labels) ? raw.calendar_labels : [];
+			const labels = rawLabels
+				.map((label): { id: number; name: string } | null => {
+					if (!isRecord(label)) return null;
+					const labelId = asNumber(label.id);
+					if (labelId === null || typeof label.name !== "string") return null;
+					return { id: labelId, name: label.name };
+				})
+				.filter((label): label is { id: number; name: string } => label !== null);
 			return {
-				id: raw.id,
+				id,
 				name: raw.name,
 				aliasCode: asNullableText(raw.alias_code),
 				deactivatedAt: msToIso(raw.deactivated_at),
+				labels,
 			};
 		});
 	}

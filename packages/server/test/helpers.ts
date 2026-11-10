@@ -57,7 +57,15 @@ export const makeFakeClient = (options: FakeClientOptions = {}) => {
 			return client.currentUser;
 		},
 		async listCalendars() {
-			return [{ id: calendarId, name: "プライベート", aliasCode: null, deactivatedAt: null }];
+			return [
+				{
+					id: calendarId,
+					name: "プライベート",
+					aliasCode: null,
+					deactivatedAt: null,
+					labels: [{ id: 1, name: "その他" }],
+				},
+			];
 		},
 		async listEvents() {
 			return [...events];

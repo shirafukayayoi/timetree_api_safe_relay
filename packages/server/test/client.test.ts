@@ -178,7 +178,16 @@ describe("TimeTreeClient", () => {
 			if (url === "https://timetreeapp.com/api/v1/calendars?since=0") {
 				return jsonResponse(200, {
 					calendars: [
-						{ id: "cal-1", name: "プライベート", alias_code: "AB12", deactivated_at: null },
+						{
+							id: 1024420045,
+							name: "プライベート",
+							alias_code: "AB12",
+							deactivated_at: null,
+							calendar_labels: [
+								{ id: 1, name: "学校" },
+								{ id: 2, name: "バイト" },
+							],
+						},
 						{ id: "cal-2", name: "旧カレンダー", alias_code: null, deactivated_at: 1732086000000 },
 					],
 				});
@@ -192,6 +201,11 @@ describe("TimeTreeClient", () => {
 		});
 		const calendars = await client.listCalendars();
 		expect(calendars).toHaveLength(2);
+		expect(calendars[0]?.id).toBe("1024420045");
+		expect(calendars[0]?.labels).toEqual([
+			{ id: 1, name: "学校" },
+			{ id: 2, name: "バイト" },
+		]);
 		expect(calendars[1]?.deactivatedAt).toBe(new Date(1732086000000).toISOString());
 	});
 
