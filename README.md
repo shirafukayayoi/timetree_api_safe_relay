@@ -73,6 +73,8 @@ Invoke-RestMethod -Headers $headers http://127.0.0.1:3100/v1/calendars
 Invoke-RestMethod -Headers $headers 'http://127.0.0.1:3100/v1/events?calendarId=CALENDAR_ID&from=2026-11-01T00:00:00Z&to=2026-11-30T23:59:59Z'
 ```
 
+カレンダー一覧には、共有カレンダーのメンバー（`members`）とラベル（`labels`）も含まれます。自分のカレンダーも人との共有カレンダーも同じAPIで操作できます。
+
 複数プロファイルを設定した場合は `x-profile-name` ヘッダーが必須です。すべての応答は `Cache-Control: no-store` です。
 
 ### 予定の追加
@@ -96,7 +98,8 @@ Invoke-RestMethod -Headers $headers "http://127.0.0.1:3100/v1/event-jobs/$($job.
 - 追加応答のイベントID取得後、`events/sync` で読み戻してID・タイトル・開始時刻が一致した場合だけ `created` にします。応答喪失などは `unknown` です。
 - 同じキーで同じ要求は既存ジョブを返し、異なる要求は `409` です。
 - `timezone` を省略した場合は設定の `defaultTimezone`（既定 `Asia/Tokyo`）を使います。
-- 出席者（`attendees`）を省略した場合は自分だけを登録します。
+- 出席者（`attendees`）を省略した場合は自分だけを登録します。共有カレンダーではメンバーのユーザーIDを指定できます（`GET /v1/calendars` の `members` を参照）。
+- ラベルは `labelId` で指定します（`GET /v1/calendars` の `labels` を参照）。省略時はラベルID 1 です。
 
 ### 予定の削除
 

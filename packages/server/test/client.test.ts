@@ -187,6 +187,10 @@ describe("TimeTreeClient", () => {
 								{ id: 1, name: "学校" },
 								{ id: 2, name: "バイト" },
 							],
+							calendar_users: [
+								{ id: 42, user_id: 42, name: "太郎" },
+								{ id: 43, user_id: 43, name: "花子" },
+							],
 						},
 						{ id: "cal-2", name: "旧カレンダー", alias_code: null, deactivated_at: 1732086000000 },
 					],
@@ -205,6 +209,10 @@ describe("TimeTreeClient", () => {
 		expect(calendars[0]?.labels).toEqual([
 			{ id: 1, name: "学校" },
 			{ id: 2, name: "バイト" },
+		]);
+		expect(calendars[0]?.members).toEqual([
+			{ userId: 42, name: "太郎" },
+			{ userId: 43, name: "花子" },
 		]);
 		expect(calendars[1]?.deactivatedAt).toBe(new Date(1732086000000).toISOString());
 	});

@@ -346,8 +346,7 @@ export class TimeTreeClient {
 		return rawList.map((raw): Calendar => {
 			// 実APIではカレンダーIDは数値で返る。
 			const rawId = isRecord(raw) ? raw.id : undefined;
-			const id =
-				typeof rawId === "string" ? rawId : typeof rawId === "number" ? String(rawId) : null;
+			const id = typeof rawId === "string" ? rawId : typeof rawId === "number" ? String(rawId) : null;
 			if (!isRecord(raw) || id === null || typeof raw.name !== "string") {
 				throw new TimeTreeError("UPSTREAM_CHANGED", "TimeTreeのカレンダー項目を読み取れません");
 			}
@@ -360,12 +359,23 @@ export class TimeTreeClient {
 					return { id: labelId, name: label.name };
 				})
 				.filter((label): label is { id: number; name: string } => label !== null);
+			// 共有カレンダーのメンバー。出席者指定に使う。
+			const rawMembers = Array.isArray(raw.calendar_users) ? raw.calendar_users : [];
+			const members = rawMembers
+				.map((member): { userId: number; name: string } | null => {
+					if (!isRecord(member)) return null;
+					const userId = asNumber(member.user_id) ?? asNumber(member.id);
+					if (userId === null || typeof member.name !== "string") return null;
+					return { userId, name: member.name };
+				})
+				.filter((member): member is { userId: number; name: string } => member !== null);
 			return {
 				id,
 				name: raw.name,
 				aliasCode: asNullableText(raw.alias_code),
 				deactivatedAt: msToIso(raw.deactivated_at),
 				labels,
+				members,
 			};
 		});
 	}

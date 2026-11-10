@@ -53,6 +53,8 @@ export const makeFakeClient = (options: FakeClientOptions = {}) => {
 	const client = {
 		state: options.state ?? "ready",
 		currentUser: options.user ?? { id: 42, name: "太郎", email: null },
+		/** 最後に受け取った作成ペイロード。テストで参照する。 */
+		lastCreatePayload: null as Record<string, unknown> | null,
 		async checkSession() {
 			return client.currentUser;
 		},
@@ -64,6 +66,7 @@ export const makeFakeClient = (options: FakeClientOptions = {}) => {
 					aliasCode: null,
 					deactivatedAt: null,
 					labels: [{ id: 1, name: "その他" }],
+					members: [{ userId: 42, name: "太郎" }],
 				},
 			];
 		},
@@ -72,6 +75,7 @@ export const makeFakeClient = (options: FakeClientOptions = {}) => {
 		},
 		async createEvent(_targetCalendarId: string, payload: Record<string, unknown>) {
 			if (options.createError) throw options.createError;
+			client.lastCreatePayload = payload;
 			const event: TimeTreeEvent = {
 				id: options.createdEventId ?? "ev-created",
 				title: String(payload.title),

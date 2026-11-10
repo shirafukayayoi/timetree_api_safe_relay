@@ -99,6 +99,12 @@ export const calendarSchema = z.strictObject({
 			name: z.string(),
 		}),
 	),
+	members: z.array(
+		z.strictObject({
+			userId: nonNegativeInteger,
+			name: z.string(),
+		}),
+	),
 });
 
 export type Calendar = z.infer<typeof calendarSchema>;

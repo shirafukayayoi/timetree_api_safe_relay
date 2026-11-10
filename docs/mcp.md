@@ -32,9 +32,9 @@ Codex等への登録例（mcpServers）:
 ## ツール一覧
 
 - `timetree_status`：接続・登録アカウント・選択中の操作先を確認する。最初に必ず実行する。
-- `timetree_list_calendars`：操作できるカレンダーの一覧を返す。
-- `timetree_list_events(calendar, days)`：今日以降指定日数分の予定を返す。`calendar` は名前でもIDでも指定できる。
-- `timetree_add_event(calendar, title, date, start_time, end_time, all_day, note, location, timezone)`：予定を1件追加する。`start_time` がないか `all_day` なら終日予定にする。
+- `timetree_list_calendars`：操作できるカレンダーの一覧を返す。共有カレンダーはラベルとメンバーも含む。
+- `timetree_list_events(calendar, days)`：今日以降指定日数分の予定を返す。`calendar` は名前でもIDでも指定できる。予定にはラベル名も付く。
+- `timetree_add_event(calendar, title, date, start_time, end_time, all_day, note, location, timezone, label, attendees)`：予定を1件追加する。`start_time` がないか `all_day` なら終日予定にする。`label` はラベル名かID、`attendees` は共有カレンダーのメンバー名かユーザーIDで指定する。
 - `timetree_delete_event(calendar, event_id | title+date, allow_series)`：予定を1件削除する。タイトルと日付で複数候補が命中した場合は削除せず候補を返す。
 
 ## 再送禁止ルール

@@ -122,6 +122,26 @@ describe("EventService 追加ジョブ", () => {
 		const finished = await enqueueAndWait(service, profile, job.id);
 		expect(finished.state).toBe("created");
 	});
+
+	it("指定したラベルと出席者で追加する", async () => {
+		const service = serviceIn(tempDir());
+		const client = makeFakeClient();
+		const profile = profileOf(client);
+		const { job } = service.createJob(profile, "key-label", {
+			calendarId: "cal-1",
+			title: "バイト",
+			allDay: false,
+			start: { dateTime: "2026-11-20T17:00:00+09:00" },
+			end: { dateTime: "2026-11-20T21:00:00+09:00" },
+			labelId: 4,
+			attendees: [42, 43],
+		});
+		const finished = await enqueueAndWait(service, profile, job.id);
+		expect(finished.state).toBe("created");
+		const payload = (client as unknown as { lastCreatePayload: Record<string, unknown> }).lastCreatePayload;
+		expect(payload.label_id).toBe(4);
+		expect(payload.attendees).toEqual([42, 43]);
+	});
 });
 
 describe("EventService 削除ジョブ", () => {

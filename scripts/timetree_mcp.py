@@ -34,6 +34,8 @@ mcp = FastMCP(
     instructions=(
         "TimeTreeの予定追加・削除・一覧のためのMCP。最初にtimetree_statusで接続とアカウントを確認する。"
         "追加・削除はユーザーの明示的な依頼があるときだけ行う。"
+        "共有カレンダーへ追加するときは出席者とラベルを確認し、ラベルはlabelIdかラベル名、"
+        "出席者はメンバー名かユーザーIDで指定する。"
         "削除はイベントIDかタイトルと日付で対象を一意に特定し、繰り返し予定はユーザーの確認が必要。"
         "処理中・結果不明の操作は同じ操作IDで状態を確認し、新しいキーで再送しない。"
         "ログイン・パスワード入力・2FA・アカウント設定の自動化は提供しない。"
@@ -146,6 +148,29 @@ def _resolve_calendar(calendar: str, profile: str) -> dict[str, Any]:
     raise ToolError(f"カレンダーが見つかりません: {calendar}")
 
 
+def _resolve_label(calendar_item: dict[str, Any], label: str) -> int:
+    labels = calendar_item.get("labels", [])
+    for item in labels:
+        if str(item["id"]) == str(label) or item["name"] == label:
+            return int(item["id"])
+    available = ", ".join(f"{item['id']}:{item['name'] or '(無名)'}" for item in labels)
+    raise ToolError(f"ラベルが見つかりません: {label} (利用可能: {available})")
+
+
+def _resolve_attendees(calendar_item: dict[str, Any], attendees: list[str]) -> list[int]:
+    members = calendar_item.get("members", [])
+    resolved: list[int] = []
+    for attendee in attendees:
+        for member in members:
+            if str(member["userId"]) == str(attendee) or member["name"] == attendee:
+                resolved.append(int(member["userId"]))
+                break
+        else:
+            available = ", ".join(f"{member['userId']}:{member['name']}" for member in members)
+            raise ToolError(f"出席者が見つかりません: {attendee} (利用可能: {available})")
+    return resolved
+
+
 def _wait_job(job_id: str, timeout_seconds: int = 60) -> dict[str, Any]:
     deadline = time.time() + timeout_seconds
     while time.time() < deadline:
@@ -190,18 +215,26 @@ def timetree_list_calendars(profile: str = "") -> dict:
 
 @mcp.tool(title="TimeTreeの予定一覧", annotations=READ)
 def timetree_list_events(calendar: str, days: int = 14, profile: str = "") -> dict:
-    """カレンダーの予定を今日以降指定日数分だけ返す。calendar は名前でもIDでも指定できる。"""
-    resolved = _resolve_calendar(calendar, _profile(profile))
+    """カレンダーの予定を今日以降指定日数分だけ返す。calendar は名前でもIDでも指定できる。
+    共有カレンダーの予定には出席者とラベル名も付ける。"""
+    resolved_profile = _profile(profile)
+    resolved = _resolve_calendar(calendar, resolved_profile)
     now = datetime.now(timezone.utc)
     params = (
         f"calendarId={urllib.parse.quote(resolved['id'])}"
         f"&from={now.isoformat()}"
         f"&to={(now + timedelta(days=days)).isoformat()}"
     )
-    result = _request("GET", f"v1/events?{params}", _profile(profile))
+    result = _request("GET", f"v1/events?{params}", resolved_profile)
+    label_names = {str(item["id"]): item["name"] for item in resolved.get("labels", [])}
+    events = []
+    for event in result["data"]["items"]:
+        item = dict(event)
+        item["labelName"] = label_names.get(str(event.get("labelId")), None)
+        events.append(item)
     return {
         "calendar": {"id": resolved["id"], "name": resolved["name"]},
-        "events": result["data"]["items"],
+        "events": events,
     }
 
 
@@ -216,9 +249,12 @@ def timetree_add_event(
     note: str = "",
     location: str = "",
     timezone: str = DEFAULT_TIMEZONE,
+    label: str = "",
+    attendees: list[str] | None = None,
     profile: str = "",
 ) -> dict:
     """予定を1件追加する。時刻はHH:MM形式。all_day か start_time がない場合は終日予定にする。
+    label はラベル名かID、attendees は共有カレンダーのメンバー名かユーザーIDで指定する。
     ユーザーの明示的な依頼があるときだけ呼ぶ。同じ内容の再追加には同じ操作IDを使う。"""
     resolved_profile = _profile(profile)
     resolved = _resolve_calendar(calendar, resolved_profile)
@@ -251,6 +287,10 @@ def timetree_add_event(
         payload["note"] = note
     if location:
         payload["location"] = location
+    if label:
+        payload["labelId"] = _resolve_label(resolved, label)
+    if attendees:
+        payload["attendees"] = _resolve_attendees(resolved, attendees)
     key = str(uuid.uuid4())
     job = _request("POST", "v1/events", resolved_profile, key, payload)["data"]
     job = _wait_job(job["id"])
