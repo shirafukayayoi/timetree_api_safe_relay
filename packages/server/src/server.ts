@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import pino from "pino";
@@ -18,9 +18,14 @@ const settingsPath =
 
 const settings = loadSettings(settingsPath);
 
-const token = process.env.TIMETREE_RELAY_API_TOKEN;
+/** トークンは環境変数、なければローカルの work/relay-token.txt から読む（MCPからの自動起動用）。 */
+const tokenFile = resolve(process.cwd(), "work", "relay-token.txt");
+const token =
+	process.env.TIMETREE_RELAY_API_TOKEN ?? (existsSync(tokenFile) ? readFileSync(tokenFile, "utf8").trim() : "");
 if (!token || token.length < 16) {
-	console.error("環境変数 TIMETREE_RELAY_API_TOKEN に16文字以上のトークンを設定してください");
+	console.error(
+		"Bearerトークンがありません。環境変数 TIMETREE_RELAY_API_TOKEN か work/relay-token.txt に16文字以上で設定してください",
+	);
 	process.exit(1);
 }
 

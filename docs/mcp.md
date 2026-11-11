@@ -10,7 +10,7 @@ MCP本体の正本は `G:/マイドライブ/I am you/Agent/MCP/timetree` です
 - `TIMETREE_RELAY_API_TOKEN`：RelayのBearerトークン（省略時は `packages/server/work/relay-token.txt` を使う）
 - `TIMETREE_RELAY_SETTINGS`：settings.jsonのパス（省略時は `packages/server/settings.json` → リポジトリルートの順に探す）
 
-Relayが停止している場合はMCPが `pnpm start:relay` を起動します。
+Relayが停止している場合はMCPが `node dist/server.js` を起動します（Bearerトークンは `work/relay-token.txt` から渡します）。
 
 ## 接続確認
 
