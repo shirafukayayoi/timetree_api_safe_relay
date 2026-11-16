@@ -11,9 +11,8 @@ MCP_SCRIPT = os.environ.get("TIMETREE_MCP_SCRIPT") or (
 	r"D:\Program\agent-mcp\timetree\TimeTree-Mcp.py"
 )
 env = dict(os.environ)
-token_path = REPOSITORY / "packages" / "server" / "work" / "relay-token.txt"
-if token_path.is_file():
-	env["TIMETREE_RELAY_API_TOKEN"] = token_path.read_text(encoding="utf-8").strip()
+# トークンはMCP自身の解決（環境変数→Relayのwork/relay-token.txt）に任せる。
+env.pop("TIMETREE_RELAY_API_TOKEN", None)
 
 proc = subprocess.Popen(
 	[sys.executable, MCP_SCRIPT],
