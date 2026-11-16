@@ -242,7 +242,7 @@ export class TimeTreeClient {
 
 	/** 固定pathへの要求。422はCSRF失効の兆候として1回だけトークン再取得して再試行する。 */
 	async #request(
-		method: "GET" | "POST" | "DELETE",
+		method: "GET" | "POST" | "PUT" | "DELETE",
 		path: string,
 		opts: { json?: unknown; expect: number[] },
 	): Promise<ApiResult> {
@@ -259,7 +259,7 @@ export class TimeTreeClient {
 			return { status: response.status, body: await this.#readBody(response) };
 		};
 		let result = await attempt();
-		if (result.status === 422 && unsafe) {
+		if (result.status === 422 && unsafe && method !== "PUT") {
 			this.#csrfToken = null;
 			await this.#refreshCsrfToken();
 			result = await attempt();
@@ -429,7 +429,9 @@ export class TimeTreeClient {
 			location: asNullableText(raw.location),
 			labelId: asNumber(raw.label_id) ?? 0,
 			attendees,
-			recurring: Array.isArray(raw.recurrences) && raw.recurrences.length > 0,
+			recurring: (Array.isArray(raw.recurrences) && raw.recurrences.length > 0) ||
+				(typeof raw.recurring_uuid === "string" && raw.recurring_uuid !== "") ||
+				(typeof raw.parent_id === "string" && raw.parent_id !== ""),
 			category: asNumber(raw.category) ?? 0,
 			url: asNullableText(raw.url),
 			updatedAt: msToIso(raw.updated_at),
@@ -443,6 +445,14 @@ export class TimeTreeClient {
 			expect: [200, 201],
 		});
 		return body;
+	}
+
+	/** タイトルだけを送る。更新要求は自動再送しない。 */
+	async updateEventTitle(calendarId: string, eventId: string, title: string): Promise<void> {
+		await this.#request("PUT", `/calendar/${calendarId}/event/${eventId}`, {
+			json: { title },
+			expect: [200, 204],
+		});
 	}
 
 	/** 予定を削除する。204 を期待する。 */

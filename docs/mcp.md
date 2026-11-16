@@ -1,6 +1,6 @@
 # MCP
 
-HTTPモードのRelayをstdio MCPとして利用できます。予定の確認・追加・削除をエージェントから依頼できます。
+HTTPモードのRelayをstdio MCPとして利用できます。予定の確認・追加・タイトル変更・削除をエージェントから依頼できます。
 
 MCP本体の正本は `G:/マイドライブ/I am you/Agent/MCP/timetree` です。導入手順・依存定義・登録例は正本の `README.md` を参照してください。このリポジトリはRelay（サーバー本体）と、MCPの動作確認用スモーク（`scripts/mcp_smoke.py`）を提供します。
 
@@ -27,11 +27,12 @@ python scripts/mcp_smoke.py
 - `timetree_list_calendars`：操作できるカレンダーの一覧を返す。共有カレンダーはラベルとメンバーも含む。
 - `timetree_list_events(calendar, days)`：今日以降指定日数分の予定を返す。`calendar` は名前でもIDでも指定できる。予定にはラベル名も付く。
 - `timetree_add_event(calendar, title, date, start_time, end_time, all_day, note, location, timezone, label, attendees)`：予定を1件追加する。`start_time` がないか `all_day` なら終日予定にする。`label` はラベル名かID、`attendees` は共有カレンダーのメンバー名かユーザーIDで指定する。
+- `timetree_update_event_title(calendar, event_id, expected_title, expected_updated_at, title, request_id)`：予定のタイトルだけを変更する。事前に一覧から現在のタイトルと `updatedAt` を取得して渡す。繰り返し予定は変更しない。
 - `timetree_delete_event(calendar, event_id | title+date, allow_series)`：予定を1件削除する。タイトルと日付で複数候補が命中した場合は削除せず候補を返す。
 
 ## 再送禁止ルール
 
-- 追加・削除はユーザーの明示的な依頼があるときだけ行う。
+- 追加・削除・タイトル変更はユーザーの明示的な依頼があるときだけ行う。
 - 操作はIdempotency-Key（UUID）で管理される。処理中・結果不明の操作は同じジョブIDで `GET /v1/event-jobs/:id` を確認し、**新しいキーで再送しない**。
 - `unknown` のジョブはTimeTree上でユーザーが確認する。台帳を削除しない。
 - 繰り返し予定の削除は系列全体へ影響するため、`allow_series` はユーザーの明示的な確認なしには指定しない。

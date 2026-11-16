@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import {
 	type CreateEventInput,
 	type DeleteEventInput,
+	type UpdateEventTitleInput,
 	type EventJob,
 	type ListEventsInput,
 	idempotencyKeySchema,
@@ -111,6 +112,24 @@ export const mountEventRoutes = ({ app, service, queues, resolveProfile }: Mount
 		}
 		if (created.created) service.enqueue(profile, queue, created.job.id);
 		return c.json({ data: created.job }, created.created ? 202 : 200);
+	});
+
+	app.post("/v1/events/update-title", async (c) => {
+		const profile = resolveProfile(c.req.header("x-profile-name"));
+		if (!profile) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const queue = queues.get(profile.name);
+		if (!queue) return fail(c, { code: "UNKNOWN_PROFILE", message: "プロファイルを特定できません" });
+		const keyResult = idempotencyKeySchema.safeParse(readKey(c.req.header("Idempotency-Key")));
+		if (!keyResult.success) return fail(c, { code: "INVALID_INPUT", message: "Idempotency-Keyが不正です" });
+		let input: UpdateEventTitleInput;
+		try {
+			input = parseOperationInput("updateEventTitle", await c.req.json());
+		} catch (error) { return fail(c, error); }
+		try {
+			const result = service.updateTitleJob(profile, keyResult.data, input);
+			if (result.created) service.enqueue(profile, queue, result.job.id);
+			return c.json({ data: result.job }, result.created ? 202 : 200);
+		} catch (error) { return fail(c, error); }
 	});
 
 	app.post("/v1/events/delete", async (c) => {

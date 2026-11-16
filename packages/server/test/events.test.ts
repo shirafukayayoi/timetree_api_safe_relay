@@ -29,7 +29,7 @@ const enqueueAndWait = async (service: EventService, profile: RelayProfile, jobI
 	service.enqueue(profile, new SerialQueue(), jobId);
 	await waitFor(() => {
 		const state = service.getJob(jobId)?.state;
-		return state !== undefined && !["queued", "validating", "creating", "deleting"].includes(state);
+		return state !== undefined && !["queued", "validating", "creating", "deleting", "updating"].includes(state);
 	});
 	const job = service.getJob(jobId);
 	if (!job) throw new Error("ジョブが見つかりません");
@@ -297,5 +297,70 @@ describe("EventService 冪等と復帰", () => {
 		expect(service.getJob(creatingJob.id)?.state).toBe("unknown");
 		expect(service.getJob(queuedJob.id)?.state).toBe("failed");
 		expect(service.getJob(queuedJob.id)?.failure?.code).toBe("INTERRUPTED");
+	});
+});
+
+describe("EventService タイトル変更ジョブ", () => {
+	const target = makeEvent({ id: "ev-1", title: "旧タイトル", updatedAt: "2026-11-20T00:00:00.000Z" });
+	const updateInput = {
+		calendarId: "cal-1",
+		eventId: "ev-1",
+		expectedTitle: "旧タイトル",
+		expectedUpdatedAt: "2026-11-20T00:00:00.000Z",
+		title: "新タイトル",
+	};
+
+	it("変更して読み戻しで検証できたらupdatedになる", async () => {
+		const service = serviceIn(tempDir());
+		const profile = profileOf(makeFakeClient({ events: [target] }));
+		const { job } = service.updateTitleJob(profile, "key-1", updateInput);
+		expect(job.state).toBe("queued");
+		const finished = await enqueueAndWait(service, profile, job.id);
+		expect(finished.state).toBe("updated");
+		expect(finished.eventId).toBe("ev-1");
+		expect(finished.failure).toBeNull();
+	});
+
+	it("事前に取得したタイトルや更新時刻が食い違えばfailedになる", async () => {
+		const service = serviceIn(tempDir());
+		const profile = profileOf(makeFakeClient({ events: [target] }));
+		const { job } = service.updateTitleJob(profile, "key-1", { ...updateInput, expectedTitle: "別のタイトル" });
+		const finished = await enqueueAndWait(service, profile, job.id);
+		expect(finished.state).toBe("failed");
+		expect(finished.failure?.code).toBe("IDEMPOTENCY_CONFLICT");
+	});
+
+	it("繰り返し予定は変更せずfailedになる", async () => {
+		const service = serviceIn(tempDir());
+		const recurring = makeEvent({ id: "ev-1", title: "旧タイトル", updatedAt: "2026-11-20T00:00:00.000Z", recurring: true });
+		const profile = profileOf(makeFakeClient({ events: [recurring] }));
+		const { job } = service.updateTitleJob(profile, "key-1", updateInput);
+		const finished = await enqueueAndWait(service, profile, job.id);
+		expect(finished.state).toBe("failed");
+		expect(finished.failure?.code).toBe("INVALID_INPUT");
+	});
+
+	it("タイトルが既に同じなら通信せずupdatedになる", async () => {
+		const service = serviceIn(tempDir());
+		const client = makeFakeClient({
+			events: [target],
+			updateTitleError: new TimeTreeError("TRANSPORT_ERROR", "呼ばれてはいけない"),
+		});
+		const profile = profileOf(client);
+		const { job } = service.updateTitleJob(profile, "key-1", { ...updateInput, title: "旧タイトル" });
+		const finished = await enqueueAndWait(service, profile, job.id);
+		expect(finished.state).toBe("updated");
+	});
+
+	it("変更要求の通信が結果不明ならunknownにして再送しない", async () => {
+		const service = serviceIn(tempDir());
+		const client = makeFakeClient({
+			events: [target],
+			updateTitleError: new TimeTreeError("TRANSPORT_ERROR", "接続が切断されました"),
+		});
+		const profile = profileOf(client);
+		const { job } = service.updateTitleJob(profile, "key-1", updateInput);
+		const finished = await enqueueAndWait(service, profile, job.id);
+		expect(finished.state).toBe("unknown");
 	});
 });

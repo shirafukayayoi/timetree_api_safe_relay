@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** TimeTree Web クライアントが使う非公開 API のうち、Relay が利用する固定操作。 */
-export const operationNames = ["getCurrentUser", "listCalendars", "listEvents", "createEvent", "deleteEvent"] as const;
+export const operationNames = ["getCurrentUser", "listCalendars", "listEvents", "createEvent", "deleteEvent", "updateEventTitle"] as const;
 
 export type OperationName = (typeof operationNames)[number];
 
@@ -78,6 +78,16 @@ export const deleteEventInputSchema = z.strictObject({
 
 export type DeleteEventInput = z.infer<typeof deleteEventInputSchema>;
 
+/** 対象を事前照合してタイトルのみ変更する。繰り返し予定には対応しない。 */
+export const updateEventTitleInputSchema = z.strictObject({
+	calendarId: calendarIdSchema,
+	eventId: eventIdSchema,
+	expectedTitle: z.string().max(200),
+	expectedUpdatedAt: z.string().min(1),
+	title: z.string().trim().min(1).max(200),
+});
+export type UpdateEventTitleInput = z.infer<typeof updateEventTitleInputSchema>;
+
 /** 一覧取得の入力。 */
 export const listEventsInputSchema = z.strictObject({
 	calendarId: calendarIdSchema,
@@ -152,6 +162,8 @@ export const jobStateSchema = z.enum([
 	"validating",
 	"creating",
 	"deleting",
+	"updating",
+	"updated",
 	"created",
 	"deleted",
 	"failed",
@@ -160,7 +172,7 @@ export const jobStateSchema = z.enum([
 
 export type JobState = z.infer<typeof jobStateSchema>;
 
-export const jobKindSchema = z.enum(["create", "delete"]);
+export const jobKindSchema = z.enum(["create", "delete", "updateTitle"]);
 export type JobKind = z.infer<typeof jobKindSchema>;
 
 export const jobFailureSchema = z.strictObject({
@@ -177,7 +189,7 @@ export const eventJobSchema = z.strictObject({
 	state: jobStateSchema,
 	profile: z.string().min(1),
 	key: idempotencyKeySchema,
-	request: z.union([createEventInputSchema, deleteEventInputSchema]),
+	request: z.union([createEventInputSchema, deleteEventInputSchema, updateEventTitleInputSchema]),
 	eventId: eventIdSchema.nullable(),
 	failure: jobFailureSchema.nullable(),
 	createdAt: isoInstantSchema,
@@ -187,7 +199,7 @@ export const eventJobSchema = z.strictObject({
 export type EventJob = z.infer<typeof eventJobSchema>;
 
 /** ジョブの進行中（未確定）状態。再起動時は unknown または failed に移す。 */
-export const inFlightJobStates = ["queued", "validating", "creating", "deleting"] as const;
+export const inFlightJobStates = ["queued", "validating", "creating", "deleting", "updating"] as const;
 
 export const isJobInFlight = (state: JobState): boolean => (inFlightJobStates as readonly string[]).includes(state);
 
@@ -198,6 +210,7 @@ export const operationInputSchemas = {
 	listEvents: listEventsInputSchema,
 	createEvent: createEventInputSchema,
 	deleteEvent: deleteEventInputSchema,
+	updateEventTitle: updateEventTitleInputSchema,
 } as const;
 
 export type OperationInputMap = {
@@ -206,6 +219,7 @@ export type OperationInputMap = {
 	listEvents: ListEventsInput;
 	createEvent: CreateEventInput;
 	deleteEvent: DeleteEventInput;
+	updateEventTitle: UpdateEventTitleInput;
 };
 
 export type OperationInput<TName extends OperationName> = OperationInputMap[TName];

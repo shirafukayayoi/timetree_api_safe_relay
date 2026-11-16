@@ -1,6 +1,7 @@
 import type {
 	CreateEventInput,
 	DeleteEventInput,
+	UpdateEventTitleInput,
 	EventJob,
 	JobFailure,
 	JobKind,
@@ -45,7 +46,7 @@ export class EventService {
 	/** 再起動時の未確定ジョブ。作成・削除中は unknown、それ以前は failed にする。 */
 	#restoreInFlightJobs(): void {
 		for (const job of this.#store.all()) {
-			if (job.state === "creating" || job.state === "deleting") {
+			if (job.state === "creating" || job.state === "deleting" || job.state === "updating") {
 				this.#transition(job.id, "unknown", {
 					failure: {
 						code: "UNVERIFIED",
@@ -127,6 +128,18 @@ export class EventService {
 		return { job, created: true };
 	}
 
+	/** タイトル変更ジョブを作る。同じキーでは再送しない。 */
+	updateTitleJob(profile: RelayProfile, key: string, input: UpdateEventTitleInput): { job: EventJob; created: boolean } {
+		const existing = this.#findByKey(profile.name, "updateTitle", key, input);
+		if (existing === "conflict") throw new TimeTreeError("IDEMPOTENCY_CONFLICT", "同じキーで異なる要求が指定されました");
+		if (existing) return { job: existing.job, created: false };
+		const now = new Date().toISOString();
+		const job: EventJob = { id: newJobId(), kind: "updateTitle", state: "queued", profile: profile.name, key,
+			request: input, eventId: input.eventId, failure: null, createdAt: now, updatedAt: now };
+		this.#store.save(job);
+		return { job, created: true };
+	}
+
 	/** ジョブをプロファイルのキューへ投入する。処理は直列で実行される。 */
 	enqueue(profile: RelayProfile, queue: SerialQueue, jobId: string): void {
 		void queue
@@ -134,12 +147,15 @@ export class EventService {
 				const job = this.#store.get(jobId);
 				if (!job) return;
 				if (job.kind === "create") await this.#runCreate(job, profile.client);
-				else await this.#runDelete(job, profile.client);
+				else if (job.kind === "delete") await this.#runDelete(job, profile.client);
+				else await this.#runUpdateTitle(job, profile.client);
 			})
 			.catch((error: unknown) => {
 				this.#logger.error(`ジョブ ${jobId} の処理で予期しないエラー: ${String(error)}`);
 				const job = this.#store.get(jobId);
-				if (job && (job.state === "queued" || job.state === "validating")) {
+				if (job?.state === "updating") {
+					this.#markUnknown(jobId, "変更処理中に予期しないエラーが発生しました。TimeTree上で確認してください");
+				} else if (job && (job.state === "queued" || job.state === "validating")) {
 					this.#transition(jobId, "failed", {
 						failure: { code: "UPSTREAM_CHANGED", message: "処理中に予期しないエラーが発生しました" },
 					});
@@ -272,6 +288,41 @@ export class EventService {
 		} catch (error) {
 			this.#fail(job.id, error);
 			this.#logger.warn(`追加ジョブ ${job.id} が失敗: ${String(error)}`);
+		}
+	}
+
+	async #runUpdateTitle(job: EventJob, client: TimeTreeClient): Promise<void> {
+		const input = job.request as UpdateEventTitleInput;
+		this.#transition(job.id, "validating");
+		try {
+			if (client.state !== "ready") await client.checkSession();
+			const before = (await client.listEvents(input.calendarId)).find((event) => event.id === input.eventId);
+			if (!before) throw new TimeTreeError("NOT_FOUND", "変更対象の予定が見つかりません");
+			if (before.recurring) throw new TimeTreeError("INVALID_INPUT", "繰り返し予定の変更には対応していません");
+			if (before.title !== input.expectedTitle || before.updatedAt !== input.expectedUpdatedAt) {
+				throw new TimeTreeError("IDEMPOTENCY_CONFLICT", "予定が変更されています。再取得して確認してください");
+			}
+			if (before.title === input.title) {
+				this.#transition(job.id, "updated", { failure: null });
+				return;
+			}
+			this.#transition(job.id, "updating");
+			try {
+				await client.updateEventTitle(input.calendarId, input.eventId, input.title);
+				const after = (await client.listEvents(input.calendarId)).find((event) => event.id === input.eventId);
+				if (!after) throw new Error("変更後の予定が見つかりません");
+				const { title: _oldTitle, updatedAt: _oldUpdated, ...beforeOther } = before;
+				const { title: _newTitle, updatedAt: _newUpdated, ...afterOther } = after;
+				if (after.title !== input.title || JSON.stringify(beforeOther) !== JSON.stringify(afterOther)) {
+					this.#markUnknown(job.id, "変更後のタイトルまたは他の項目を照合できません。TimeTree上で確認してください");
+					return;
+				}
+				this.#transition(job.id, "updated", { failure: null });
+			} catch {
+				this.#markUnknown(job.id, "変更要求後の結果を確認できません。TimeTree上で確認し、再送しないでください");
+			}
+		} catch (error) {
+			this.#fail(job.id, error);
 		}
 	}
 

@@ -42,6 +42,7 @@ export type FakeClientOptions = {
 	createdEventId?: string;
 	createError?: Error;
 	deleteError?: Error;
+	updateTitleError?: Error;
 	user?: CurrentUser;
 	state?: ProfileState;
 };
@@ -99,6 +100,13 @@ export const makeFakeClient = (options: FakeClientOptions = {}) => {
 			if (options.deleteError) throw options.deleteError;
 			const index = events.findIndex((event) => event.id === eventId);
 			if (index >= 0) events.splice(index, 1);
+		},
+		/** タイトルだけを差し替える。更新時刻も進めて読み戻しの照合に使わせる。 */
+		async updateEventTitle(_targetCalendarId: string, eventId: string, title: string) {
+			if (options.updateTitleError) throw options.updateTitleError;
+			const index = events.findIndex((event) => event.id === eventId);
+			if (index < 0) throw new Error("対象の予定がありません");
+			events[index] = { ...events[index], title, updatedAt: new Date().toISOString() };
 		},
 	};
 	return client as unknown as TimeTreeClient;
