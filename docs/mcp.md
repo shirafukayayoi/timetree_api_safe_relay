@@ -2,11 +2,11 @@
 
 HTTPモードのRelayをstdio MCPとして利用できます。予定の確認・追加・タイトル変更・削除をエージェントから依頼できます。
 
-MCP本体はリポジトリ内の `scripts/timetree_mcp.py` です。clone直後から、リポジトリの `packages/server` を自動で見つけてRelayを起動できます。DSH（DeepSeek Harness）へは `G:/マイドライブ/I am you/Agent/MCP/timetree` の複製をバンドル登録しています。導入手順は両方の `README.md` を参照してください。
+MCP本体は [agent-mcp](https://github.com/shirafukayayoi/agent-mcp) リポジトリの `timetree/` にあります。`agent-mcp` をcloneして `setup.ps1` を実行すると、このRelayのclone・`pnpm install`・`pnpm build`・`settings.json`・Bearerトークン・DSHバンドル定義まで準備されます。このリポジトリはRelay（サーバー本体）と、MCPの動作確認用スモーク（`scripts/mcp_smoke.py`）を提供します。
 
 ## 環境変数
 
-- `TIMETREE_RELAY_REPOSITORY`：Relayリポジトリの絶対パス（省略時はMCPの配置場所から自動判定）
+- `TIMETREE_RELAY_REPOSITORY`：Relayリポジトリの絶対パス（MCPが省略時は既定の配置先を使う）
 - `TIMETREE_RELAY_API_TOKEN`：RelayのBearerトークン（省略時は `packages/server/work/relay-token.txt` を使う）
 - `TIMETREE_RELAY_SETTINGS`：settings.jsonのパス（省略時は `packages/server/settings.json` → リポジトリルートの順に探す）
 
@@ -14,7 +14,7 @@ Relayが停止している場合はMCPが `node dist/server.js` を起動しま�
 
 ## 接続確認
 
-stdio経由の動作確認には `scripts/mcp_smoke.py` を使う。MCPを起動し、初期化・ツール一覧・`timetree_status`・`timetree_list_calendars`（読み取りのみ）を検証する。
+stdio経由の動作確認には `scripts/mcp_smoke.py` を使う。Drive正本のMCPを起動し、初期化・ツール一覧・`timetree_status`・`timetree_list_calendars`（読み取りのみ）を検証する。
 
 ```powershell
 $env:PYTHONUTF8 = '1'

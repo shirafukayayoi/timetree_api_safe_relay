@@ -6,8 +6,13 @@
  *   pnpm sessions:export --name account1 [--force] [--timeout-seconds 300]
  */
 import { existsSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
-import { chromium } from "playwright";
+
+// pnpmの分離配置に合わせ、依存を宣言しているserverパッケージから解決する。
+const { chromium } = createRequire(new URL("../packages/server/package.json", import.meta.url))("playwright") as {
+	chromium: typeof import("playwright").chromium;
+};
 
 const args = process.argv.slice(2);
 const argValue = (name: string): string | undefined => {

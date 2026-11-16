@@ -7,7 +7,9 @@ import sys
 from pathlib import Path
 
 REPOSITORY = Path(__file__).resolve().parents[1]
-MCP_SCRIPT = os.environ.get("TIMETREE_MCP_SCRIPT") or str(REPOSITORY / "scripts" / "timetree_mcp.py")
+MCP_SCRIPT = os.environ.get("TIMETREE_MCP_SCRIPT") or (
+	r"D:\Program\agent-mcp\timetree\TimeTree-Mcp.py"
+)
 env = dict(os.environ)
 token_path = REPOSITORY / "packages" / "server" / "work" / "relay-token.txt"
 if token_path.is_file():

@@ -130,33 +130,7 @@ Invoke-RestMethod -Method Post -Headers $headers -ContentType 'application/json'
 
 ## MCP
 
-HTTPモードのRelayをstdio MCPとして利用できます。予定の確認・追加・タイトル変更・削除を自然言語から行えます。MCP本体はリポジトリ内の `scripts/timetree_mcp.py` です（DSHへは `Agent/MCP/timetree` の複製を登録しています）。詳細は [MCP](docs/mcp.md) を参照してください。
-
-clone直後から使うまでの手順:
-
-```powershell
-git clone https://github.com/shirafukayayoi/timetree_api_safe_relay.git
-cd timetree_api_safe_relay
-pnpm install
-pnpm build
-Copy-Item settings.example.json settings.json
-$env:TIMETREE_RELAY_API_TOKEN = -join ((1..48) | ForEach-Object { [char](Get-Random -Minimum 48 -Maximum 123) })
-Set-Content packages/server/work/relay-token.txt $env:TIMETREE_RELAY_API_TOKEN -NoNewline
-pnpm sessions:export --name account1   # ブラウザで手動ログイン
-pip install mcp
-```
-
-MCPクライアントへの登録例（`~/.codex/config.toml`）:
-
-```toml
-[mcp_servers.timetree]
-command = 'C:/Users/<user>/AppData/Local/Programs/Python/Python314/python.exe'
-args = ['<clone先>/scripts/timetree_mcp.py']
-startup_timeout_sec = 20
-tool_timeout_sec = 120
-```
-
-MCPはRelayが停止していれば `node dist/server.js` で自動起動します（トークンは `packages/server/work/relay-token.txt` から読みます）。
+HTTPモードのRelayをstdio MCPとして利用できます。予定の確認・追加・タイトル変更・削除を自然言語から行えます。MCP本体は [agent-mcp](https://github.com/shirafukayayoi/agent-mcp) リポジトリの `timetree/` にあり、`setup.ps1` がこのRelayのclone・ビルド・トークン生成まで行います。詳細は [MCP](docs/mcp.md) を参照してください。
 
 ## 検証コマンド
 
