@@ -120,7 +120,7 @@ describe("TimeTreeClient", () => {
 							start_at: 1732172400000,
 							end_at: 1732258799999,
 							start_timezone: "Asia/Tokyo",
-							recurrences: [{ freq: "weekly" }],
+							recurrences: ["RRULE:FREQ=WEEKLY"],
 							category: 1,
 						},
 					],
@@ -142,6 +142,28 @@ describe("TimeTreeClient", () => {
 		expect(events[0]?.startAt).toBe(new Date(1732086000000).toISOString());
 		expect(events[1]?.recurring).toBe(true);
 		expect(events[1]?.allDay).toBe(true);
+		expect(events[1]?.recurrenceRules).toEqual(["RRULE:FREQ=WEEKLY"]);
+	});
+
+	it("未知の繰り返し定義を推測して正規化しない", async () => {
+		const client = new TimeTreeClient({
+			profileName: "p",
+			sessionFile: sessionFileIn(),
+			fetchImpl: (() =>
+				jsonResponse(200, {
+					events: [
+						{
+							uuid: "bad",
+							title: "予定",
+							start_at: 1732086000000,
+							end_at: 1732089600000,
+							recurrences: [{ freq: "weekly" }],
+						},
+					],
+					chunk: false,
+				})) as FetchLike,
+		});
+		await expect(client.listEvents("cal-1")).rejects.toMatchObject({ code: "UPSTREAM_CHANGED" });
 	});
 
 	it("Set-Cookieでセッションが更新されたら同じファイルへ保存する", async () => {

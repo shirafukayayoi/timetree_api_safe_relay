@@ -132,6 +132,10 @@ export const timeTreeEventSchema = z.strictObject({
 	labelId: nonNegativeInteger,
 	attendees: z.array(nonNegativeInteger),
 	recurring: z.boolean(),
+	/** 認証情報を含まない RFC 5545 の繰り返し定義。未展開の元予定だけに付く。 */
+	recurrenceRules: z.array(z.string()).optional(),
+	/** 展開した各回が属する元予定ID。変更・削除には各回の合成IDを使わない。 */
+	seriesId: eventIdSchema.optional(),
 	category: nonNegativeInteger,
 	url: nullableUrl,
 	updatedAt: nullableText,

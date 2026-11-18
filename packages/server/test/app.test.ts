@@ -3,7 +3,7 @@ import { createApp } from "../src/app.js";
 import { AccountService } from "../src/accounts/service.js";
 import { EventService } from "../src/events/service.js";
 import type { RelayProfile } from "../src/types.js";
-import { makeFakeClient, noopLogger, tempDir, waitFor } from "./helpers.js";
+import { makeEvent, makeFakeClient, noopLogger, tempDir, waitFor } from "./helpers.js";
 
 const token = "test-token-1234567890";
 
@@ -77,6 +77,45 @@ describe("createApp カレンダー・予定一覧", () => {
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as { data: { items: unknown[] } };
 		expect(Array.isArray(body.data.items)).toBe(true);
+	});
+
+	it("期間一覧は過去開始の毎週系列を各回に展開する", async () => {
+		const { app } = buildApp({
+			profiles: [
+				{
+					name: "account1",
+					client: makeFakeClient({
+						events: [
+							makeEvent({
+								recurring: true,
+								startAt: "2026-11-11T10:30:00.000Z",
+								endAt: "2026-11-11T11:45:00.000Z",
+								recurrenceRules: ["RRULE:FREQ=WEEKLY", "EXDATE:20261125T103000Z"],
+							}),
+						],
+					}),
+				},
+			],
+		});
+		const response = await app.request(
+			"/v1/events?calendarId=cal-1&from=2026-11-18T00:00:00Z&to=2026-11-30T23:59:59Z",
+			{ headers: authorizedHeaders() },
+		);
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as { data: { items: { startAt: string; seriesId: string; id: string }[] } };
+		expect(body.data.items).toHaveLength(1);
+		expect(body.data.items[0]?.startAt).toBe("2026-11-18T10:30:00.000Z");
+		expect(body.data.items[0]?.seriesId).toBe("ev-1");
+		expect(body.data.items[0]?.id).not.toBe("ev-1");
+	});
+
+	it("逆転期間では400を返す", async () => {
+		const { app } = buildApp();
+		const response = await app.request(
+			"/v1/events?calendarId=cal-1&from=2026-11-30T00:00:00Z&to=2026-11-01T00:00:00Z",
+			{ headers: authorizedHeaders() },
+		);
+		expect(response.status).toBe(400);
 	});
 
 	it("calendarIdなしでは400", async () => {

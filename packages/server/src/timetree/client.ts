@@ -413,6 +413,13 @@ export class TimeTreeClient {
 		if (id === null || typeof raw.title !== "string" || startAt === null || endAt === null) {
 			throw new TimeTreeError("UPSTREAM_CHANGED", "TimeTreeの予定項目に必須フィールドがありません");
 		}
+		if (
+			raw.recurrences !== undefined &&
+			(!Array.isArray(raw.recurrences) || raw.recurrences.some((rule) => typeof rule !== "string"))
+		) {
+			throw new TimeTreeError("UPSTREAM_CHANGED", "TimeTreeの繰り返し定義を読み取れません");
+		}
+		const recurrenceRules = (raw.recurrences ?? []) as string[];
 		const attendees = Array.isArray(raw.attendees)
 			? raw.attendees
 					.map((attendee) => (typeof attendee === "number" ? attendee : asNumber(attendee)))
@@ -429,7 +436,9 @@ export class TimeTreeClient {
 			location: asNullableText(raw.location),
 			labelId: asNumber(raw.label_id) ?? 0,
 			attendees,
-			recurring: (Array.isArray(raw.recurrences) && raw.recurrences.length > 0) ||
+			...(recurrenceRules.length ? { recurrenceRules } : {}),
+			recurring:
+				recurrenceRules.length > 0 ||
 				(typeof raw.recurring_uuid === "string" && raw.recurring_uuid !== "") ||
 				(typeof raw.parent_id === "string" && raw.parent_id !== ""),
 			category: asNumber(raw.category) ?? 0,

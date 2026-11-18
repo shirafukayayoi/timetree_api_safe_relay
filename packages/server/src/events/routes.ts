@@ -13,6 +13,7 @@ import type { RelayProfile } from "../types.js";
 import type { EventService } from "./service.js";
 import type { SerialQueue } from "../utils/queue.js";
 import { fail } from "../utils/errors.js";
+import { eventsInRange } from "./recurrence.js";
 
 export type MountEventRoutesOptions = {
 	app: Hono;
@@ -64,15 +65,7 @@ export const mountEventRoutes = ({ app, service, queues, resolveProfile }: Mount
 		}
 		try {
 			const events = await queue.run(() => profile.client.listEvents(input.calendarId));
-			const fromMs = input.from === undefined ? null : Date.parse(input.from);
-			const toMs = input.to === undefined ? null : Date.parse(input.to);
-			const filtered = events.filter((event) => {
-				const startMs = Date.parse(event.startAt);
-				const endMs = Date.parse(event.endAt);
-				if (fromMs !== null && endMs < fromMs) return false;
-				if (toMs !== null && startMs > toMs) return false;
-				return true;
-			});
+			const filtered = eventsInRange(events, input.from, input.to);
 			return c.json({ data: { items: filtered } });
 		} catch (error) {
 			return fail(c, error);
